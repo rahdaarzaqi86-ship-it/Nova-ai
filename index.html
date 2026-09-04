@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Nova AI - Latihan Matematika & Sains</title>
+<meta name="theme-color" content="#16302B" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap');
+  .chalk-title { font-family: 'Baloo 2', sans-serif; }
+  button { font-family: inherit; cursor: pointer; }
+  .opt-btn:active { transform: translateY(1px); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; display: inline-block; animation: spin 0.7s linear infinite; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+  // Diagnosis: kalau aplikasi belum tampil dalam 7 detik, tampilkan pesan
+  // supaya layar tidak putih kosong tanpa keterangan.
+  setTimeout(function () {
+    var root = document.getElementById("root");
+    if (root && root.innerHTML.trim() === "") {
+      root.innerHTML =
+        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:sans-serif;background:#16302B;color:#FBF3E3;">' +
+        '<div><p style="font-weight:700;font-size:18px;margin-bottom:10px;">Gagal memuat aplikasi</p>' +
+        '<p style="font-size:14px;color:#B9CFC7;line-height:1.5;">Library React/Babel dari internet tidak berhasil dimuat.<br><br>' +
+        "Coba: (1) ganti ke WiFi atau paket data lain, (2) matikan sementara pemblokir iklan/DNS khusus, lalu (3) refresh halaman ini." +
+        "</p></div></div>";
+    }
+  }, 7000);
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+
+// ---- Firebase (akun Google & sinkronisasi cloud) ----
+// GANTI nilai di bawah dengan config dari Firebase Console-mu (Project settings > General > Your apps).
+const firebaseConfig = {
+  apiKey: "AIzaSyArQkbTMfKNhWoMhYqzEcFF2nwOlgFiF2Y",
+  authDomain: "nova-ai-6e387.firebaseapp.com",
+  projectId: "nova-ai-6e387",
+  storageBucket: "nova-ai-6e387.firebasestorage.app",
+  messagingSenderId: "1002653627316",
+  appId: "1:1002653627316:web:2c339c2047cd4e538338e1",
+};
+let auth = null;
+let db = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+} catch (e) {
+  console.error("Firebase belum dikonfigurasi dengan benar:", e);
+}
+
+// Ikon ringan tanpa dependensi npm (glyph/emoji) supaya file ini bisa jalan langsung di browser.
+const Icon = ({ children, size = 18, color, style = {} }) => (
+  <span style={{ fontSize: size, lineHeight: 1, display: "inline-flex", color, ...style }}>{children}</span>
+);
+const Spinner = ({ style = {} }) => <span className="spinner-dot" style={style} />;
+
+// ---------------------------------------------------------------------------
+// Bank soal
+// ---------------------------------------------------------------------------
+const SUBJECTS = {
+  matematika: {
+    label: "Matematika",
+    tagline: "Angka, pola, dan bentuk",
+    accent: "#F4C550",
+    topics: {
+      aljabar: {
+        label: "Aljabar",
+        questions: [
+          { q: "2x + 5 = 15. Berapa nilai x?", options: ["5", "10", "-5", "7,5"], correct: 0, tip: "Pindahkan 5 ke ruas kanan: 2x = 10, lalu bagi 2." },
+          { q: "3(x - 2) = 12. Berapa nilai x?", options: ["4", "6", "8", "10"], correct: 1, tip: "3x - 6 = 12, jadi 3x = 18, x = 6." },
+          { q: "Jika x = 4, berapa nilai 2x² - 3x?", options: ["14", "20", "26", "32"], correct: 1, tip: "2(16) - 3(4) = 32 - 12 = 20." },
+          { q: "Sederhanakan: 5x + 3x - 2x", options: ["6x", "10x", "8x", "4x"], correct: 0, tip: "5 + 3 - 2 = 6, jadi hasilnya 6x." },
+          { q: "x/3 + 2 = 5. Berapa nilai x?", options: ["6", "9", "12", "15"], correct: 1, tip: "x/3 = 3, kalikan kedua ruas dengan 3: x = 9." },
+          { q: "2(x + 3) = 16. Berapa nilai x?", options: ["3", "4", "5", "6"], correct: 2, tip: "2x + 6 = 16, jadi 2x = 10, x = 5." },
+          { q: "Jika y = 3, berapa nilai y² + 2y?", options: ["9", "12", "15", "18"], correct: 2, tip: "3² + 2(3) = 9 + 6 = 15." },
+          { q: "7x = 3x + 20. Berapa nilai x?", options: ["4", "5", "6", "7"], correct: 1, tip: "7x - 3x = 20, jadi 4x = 20, x = 5." },
+          { q: "Sederhanakan: 4(x + 2) - 3x", options: ["x + 8", "4x + 8", "x + 2", "7x + 8"], correct: 0, tip: "4x + 8 - 3x = x + 8." },
+          { q: "x - 5 = -2. Berapa nilai x?", options: ["-7", "-3", "3", "7"], correct: 2, tip: "Tambahkan 5 ke kedua ruas: x = -2 + 5 = 3." },
+        ],
+      },
+      pecahan: {
+        label: "Pecahan",
+        questions: [
+          { q: "1/2 + 1/4 = ?", options: ["3/4", "2/6", "1/4", "1"], correct: 0, tip: "Samakan penyebut jadi 4: 2/4 + 1/4 = 3/4." },
+          { q: "3/5 × 2/3 = ?", options: ["2/5", "5/8", "6/8", "1/5"], correct: 0, tip: "Kalikan pembilang dan penyebut: 6/15, sederhanakan jadi 2/5." },
+          { q: "2/3 + 1/6 = ?", options: ["5/6", "3/9", "1/2", "2/3"], correct: 0, tip: "Samakan penyebut jadi 6: 4/6 + 1/6 = 5/6." },
+          { q: "4/9 × 3/2 = ?", options: ["2/3", "6/11", "7/9", "1/3"], correct: 0, tip: "Kalikan pembilang dan penyebut: 12/18, sederhanakan jadi 2/3." },
+          { q: "5/6 - 1/3 = ?", options: ["1/2", "4/3", "1/3", "2/3"], correct: 0, tip: "1/3 = 2/6, jadi 5/6 - 2/6 = 3/6 = 1/2." },
+          { q: "1/4 dari 80 adalah...", options: ["16", "20", "24", "30"], correct: 1, tip: "80 ÷ 4 = 20." },
+          { q: "3/8 + 1/8 = ?", options: ["1/2", "1/4", "3/4", "1/8"], correct: 0, tip: "3/8 + 1/8 = 4/8, disederhanakan jadi 1/2." },
+          { q: "7/8 - 1/4 = ?", options: ["5/8", "6/8", "3/4", "1/2"], correct: 0, tip: "1/4 = 2/8, jadi 7/8 - 2/8 = 5/8." },
+          { q: "0,75 sama dengan pecahan paling sederhana...", options: ["3/4", "7/10", "2/3", "4/5"], correct: 0, tip: "0,75 = 75/100 = 3/4 setelah disederhanakan." },
+          { q: "2 1/2 : 1/2 = ?", options: ["5", "4", "6", "2,5"], correct: 0, tip: "2 1/2 = 5/2, dibagi 1/2 sama dengan dikali 2/1, hasilnya 5." },
+        ],
+      },
+      geometri: {
+        label: "Geometri",
+        questions: [
+          { q: "Luas persegi panjang dengan panjang 8 cm dan lebar 5 cm?", options: ["40 cm²", "26 cm²", "13 cm²", "45 cm²"], correct: 0, tip: "Luas = panjang × lebar = 8 × 5 = 40." },
+          { q: "Keliling lingkaran berjari-jari 7 cm (π = 22/7)?", options: ["44 cm", "22 cm", "154 cm", "88 cm"], correct: 0, tip: "Keliling = 2πr = 2 × 22/7 × 7 = 44 cm." },
+          { q: "Luas segitiga dengan alas 10 cm dan tinggi 6 cm?", options: ["60 cm²", "30 cm²", "16 cm²", "20 cm²"], correct: 1, tip: "Luas = 1/2 × alas × tinggi = 1/2 × 10 × 6 = 30." },
+          { q: "Jumlah sudut dalam segitiga selalu...", options: ["90°", "180°", "360°", "270°"], correct: 1, tip: "Ini berlaku untuk semua jenis segitiga." },
+          { q: "Volume kubus dengan panjang sisi 4 cm?", options: ["16 cm³", "48 cm³", "64 cm³", "12 cm³"], correct: 2, tip: "Volume = sisi³ = 4 × 4 × 4 = 64." },
+          { q: "Luas lingkaran berjari-jari 14 cm (π = 22/7)?", options: ["616 cm²", "44 cm²", "308 cm²", "88 cm²"], correct: 0, tip: "Luas = πr² = 22/7 × 14 × 14 = 616." },
+          { q: "Keliling persegi dengan sisi 9 cm?", options: ["18 cm", "27 cm", "36 cm", "81 cm"], correct: 2, tip: "Keliling = 4 × sisi = 4 × 9 = 36." },
+          { q: "Trapesium punya sisi sejajar 8 cm dan 12 cm, tinggi 5 cm. Berapa luasnya?", options: ["40 cm²", "50 cm²", "60 cm²", "100 cm²"], correct: 1, tip: "Luas = 1/2 × (8+12) × 5 = 50." },
+          { q: "Jumlah sudut dalam segi empat adalah...", options: ["180°", "270°", "360°", "450°"], correct: 2, tip: "Segi empat apa pun jumlah sudutnya selalu 360°." },
+          { q: "Diameter lingkaran adalah 20 cm, berapa jari-jarinya?", options: ["5 cm", "10 cm", "15 cm", "20 cm"], correct: 1, tip: "Jari-jari = diameter ÷ 2 = 20 ÷ 2 = 10." },
+        ],
+      },
+    },
+  },
+  sains: {
+    label: "Sains",
+    tagline: "Alam, tubuh, dan zat",
+    accent: "#6FBFB0",
+    topics: {
+      fisika: {
+        label: "Fisika",
+        questions: [
+          { q: "Rumus untuk menghitung kecepatan adalah...", options: ["v = s/t", "v = s × t", "v = t/s", "v = s + t"], correct: 0, tip: "Kecepatan = jarak dibagi waktu." },
+          { q: "Satuan gaya dalam Sistem Internasional (SI) adalah...", options: ["Newton", "Joule", "Watt", "Pascal"], correct: 0, tip: "Newton (N) adalah satuan gaya." },
+          { q: "Benda yang jatuh bebas dipengaruhi oleh gaya...", options: ["Gravitasi", "Gesekan", "Magnet", "Listrik"], correct: 0, tip: "Gravitasi bumi menarik semua benda ke bawah." },
+          { q: "Sifat cahaya yang membuat bayangan tampak tajam disebut...", options: ["Pemantulan", "Merambat lurus", "Pembiasan", "Difraksi"], correct: 1, tip: "Cahaya merambat lurus sehingga bayangan memiliki tepi yang tegas." },
+          { q: "Alat untuk mengukur suhu disebut...", options: ["Termometer", "Barometer", "Amperemeter", "Higrometer"], correct: 0, tip: "Termometer mengukur suhu dalam derajat Celsius atau Kelvin." },
+          { q: "Rumus untuk menghitung percepatan adalah...", options: ["a = Δv/t", "a = v × t", "a = m/v", "a = F + m"], correct: 0, tip: "Percepatan = perubahan kecepatan dibagi waktu." },
+          { q: "Bunyi tidak dapat merambat di...", options: ["Udara", "Air", "Ruang hampa", "Besi"], correct: 2, tip: "Bunyi butuh medium (zat) untuk merambat, ruang hampa tidak punya medium." },
+          { q: "Satuan energi dalam Sistem Internasional (SI) adalah...", options: ["Newton", "Joule", "Watt", "Ampere"], correct: 1, tip: "Joule (J) adalah satuan energi." },
+          { q: "Magnet memiliki berapa kutub utama?", options: ["1", "2", "3", "4"], correct: 1, tip: "Magnet selalu punya kutub utara dan selatan." },
+          { q: "Proses berubahnya benda cair menjadi gas disebut...", options: ["Pembekuan", "Penguapan", "Pengembunan", "Pencairan"], correct: 1, tip: "Penguapan terjadi saat zat cair menyerap panas dan berubah jadi gas." },
+        ],
+      },
+      biologi: {
+        label: "Biologi",
+        questions: [
+          { q: "Organel sel yang menghasilkan energi disebut...", options: ["Mitokondria", "Nukleus", "Ribosom", "Kloroplas"], correct: 0, tip: "Mitokondria dikenal sebagai 'pembangkit tenaga' sel." },
+          { q: "Proses tumbuhan membuat makanan sendiri disebut...", options: ["Respirasi", "Fotosintesis", "Transpirasi", "Fermentasi"], correct: 1, tip: "Fotosintesis mengubah cahaya, air, dan CO₂ jadi makanan." },
+          { q: "Jumlah kromosom normal pada manusia adalah...", options: ["23", "44", "46", "48"], correct: 2, tip: "Manusia memiliki 23 pasang kromosom, totalnya 46." },
+          { q: "Organ yang memompa darah ke seluruh tubuh adalah...", options: ["Jantung", "Paru-paru", "Hati", "Ginjal"], correct: 0, tip: "Jantung memompa darah lewat pembuluh darah." },
+          { q: "Enzim yang mencerna karbohidrat di mulut adalah...", options: ["Amilase", "Pepsin", "Lipase", "Tripsin"], correct: 0, tip: "Amilase (ptialin) dalam air liur memecah pati." },
+          { q: "Bagian sel yang mengatur seluruh aktivitas sel adalah...", options: ["Nukleus", "Ribosom", "Mitokondria", "Vakuola"], correct: 0, tip: "Nukleus (inti sel) menyimpan DNA dan mengendalikan sel." },
+          { q: "Hewan yang bernapas dengan insang adalah...", options: ["Ikan", "Katak dewasa", "Burung", "Kucing"], correct: 0, tip: "Ikan bernapas menggunakan insang untuk menyerap oksigen dari air." },
+          { q: "Proses pertukaran gas pada manusia terjadi di...", options: ["Jantung", "Paru-paru", "Hati", "Ginjal"], correct: 1, tip: "Pertukaran oksigen dan karbon dioksida terjadi di alveolus paru-paru." },
+          { q: "Tumbuhan menyerap air melalui...", options: ["Daun", "Batang", "Akar", "Bunga"], correct: 2, tip: "Akar menyerap air dan mineral dari dalam tanah." },
+          { q: "Golongan darah universal donor adalah...", options: ["A", "B", "AB", "O"], correct: 3, tip: "Golongan darah O bisa didonorkan ke semua golongan darah lain." },
+        ],
+      },
+      kimia: {
+        label: "Kimia",
+        questions: [
+          { q: "Lambang kimia untuk unsur emas adalah...", options: ["Au", "Ag", "Fe", "Cu"], correct: 0, tip: "Au berasal dari bahasa Latin 'aurum'." },
+          { q: "pH air murni pada suhu ruang adalah...", options: ["0", "7", "14", "1"], correct: 1, tip: "pH 7 menandakan larutan netral." },
+          { q: "Unsur paling banyak di atmosfer bumi adalah...", options: ["Oksigen", "Nitrogen", "Karbon dioksida", "Argon"], correct: 1, tip: "Nitrogen menyusun sekitar 78% atmosfer." },
+          { q: "Reaksi kimia yang melepaskan panas disebut reaksi...", options: ["Endoterm", "Eksoterm", "Isoterm", "Netral"], correct: 1, tip: "Eksoterm melepas energi panas ke lingkungan." },
+          { q: "Rumus kimia untuk air adalah...", options: ["H₂O", "CO₂", "NaCl", "O₂"], correct: 0, tip: "Air terdiri dari 2 atom hidrogen dan 1 atom oksigen." },
+          { q: "Simbol kimia untuk perak adalah...", options: ["Ag", "Au", "Al", "As"], correct: 0, tip: "Ag berasal dari bahasa Latin 'argentum'." },
+          { q: "Campuran yang tidak dapat dipisahkan secara fisika biasa disebut...", options: ["Larutan", "Senyawa", "Koloid", "Suspensi"], correct: 1, tip: "Senyawa terbentuk dari reaksi kimia dan hanya bisa dipisah secara kimia." },
+          { q: "Zat yang mempercepat reaksi kimia tanpa ikut bereaksi disebut...", options: ["Katalis", "Pelarut", "Elektrolit", "Indikator"], correct: 0, tip: "Katalis mempercepat reaksi tanpa berubah jumlahnya." },
+          { q: "pH larutan asam berada pada rentang...", options: ["Di atas 7", "Tepat 7", "Di bawah 7", "14"], correct: 2, tip: "Semakin kecil pH di bawah 7, semakin asam larutannya." },
+          { q: "Rumus kimia garam dapur adalah...", options: ["NaCl", "KCl", "CaCO3", "H2SO4"], correct: 0, tip: "Garam dapur tersusun dari natrium dan klorin." },
+        ],
+      },
+    },
+  },
+};
+
+const PRAISE = ["Mantap!", "Betul!", "Keren!", "Jempolan!", "Tepat sekali!"];
+const STORAGE_KEY = "nova-ai-progress";
+const MAX_ENERGY = 2;
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+const PLANS = [
+  { key: "weekly", label: "Mingguan", price: "Rp19.000", period: "/minggu", days: 7 },
+  { key: "monthly", label: "Bulanan", price: "Rp59.000", period: "/bulan", days: 30, badge: "Populer" },
+  { key: "yearly", label: "Tahunan", price: "Rp449.000", period: "/tahun", days: 365, badge: "Hemat 37%" },
+];
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function NovaAIApp() {
+  const [stats, setStats] = useState({
+    xp: 0,
+    streak: 0,
+    lastPlayDate: null,
+    membership: { tier: "free", expiresAt: null },
+    energy: MAX_ENERGY,
+    energyRefillAt: null,
+  });
+  const [loaded, setLoaded] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+  const [screen, setScreen] = useState("home");
+  const [subjectKey, setSubjectKey] = useState("matematika");
+  const [topicKey, setTopicKey] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [qIndex, setQIndex] = useState(0);
+  const [hearts, setHearts] = useState(3);
+  const [selected, setSelected] = useState(null);
+  const [answered, setAnswered] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const [isAISession, setIsAISession] = useState(false);
+  const [aiTopicLoading, setAiTopicLoading] = useState(null);
+  const [aiError, setAiError] = useState(null);
+  const [solverInput, setSolverInput] = useState("");
+  const [solverLoading, setSolverLoading] = useState(false);
+  const [solverAnswer, setSolverAnswer] = useState(null);
+  const [solverError, setSolverError] = useState(null);
+
+  // Muat progres tersimpan (pakai localStorage bawaan browser)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setStats((prev) => ({ ...prev, ...parsed }));
+      }
+    } catch (e) {
+      // belum ada data tersimpan, pakai default
+    }
+    setLoaded(true);
+  }, []);
+
+  const persist = useCallback(
+    (next) => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {
+        console.error("Gagal menyimpan progres", e);
+      }
+      if (user && db) {
+        db.collection("users").doc(user.uid).set(next).catch((e) => console.error("Gagal sync ke cloud", e));
+      }
+    },
+    [user]
+  );
+
+  // Pantau status login Google
+  useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+    const unsub = auth.onAuthStateChanged((u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    auth.getRedirectResult().catch((e) => setAuthError(e.message || "Gagal masuk."));
+    return () => unsub();
+  }, []);
+
+  // Saat berhasil login, tarik data dari cloud (atau unggah data lokal kalau belum pernah login)
+  useEffect(() => {
+    if (!user || !db) return;
+    const ref = db.collection("users").doc(user.uid);
+    ref
+      .get()
+      .then((snap) => {
+        if (snap.exists) {
+          setStats((prev) => ({ ...prev, ...snap.data() }));
+        } else {
+          ref.set(stats).catch(() => {});
+        }
+      })
+      .catch((e) => console.error("Gagal ambil data cloud", e));
+  }, [user]);
+
+  const signInGoogle = () => {
+    if (!auth) {
+      setAuthError("Firebase belum dikonfigurasi.");
+      return;
+    }
+    setAuthError(null);
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithRedirect(provider).catch((e) => setAuthError(e.message || "Gagal masuk."));
+  };
+
+  const signOutUser = () => {
+    if (!auth) return;
+    auth.signOut();
+  };
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    setStats((prev) => {
+      let changed = false;
+      let next = { ...prev };
+      if (next.membership && next.membership.tier !== "free" && next.membership.expiresAt && next.membership.expiresAt <= now) {
+        next.membership = { tier: "free", expiresAt: null };
+        next.energy = MAX_ENERGY;
+        next.energyRefillAt = null;
+        changed = true;
+      }
+      const memberActive = next.membership && next.membership.tier !== "free" && next.membership.expiresAt > now;
+      if (!memberActive && next.energyRefillAt && now >= next.energyRefillAt) {
+        next.energy = MAX_ENERGY;
+        next.energyRefillAt = null;
+        changed = true;
+      }
+      if (changed) {
+        persist(next);
+        return next;
+      }
+      return prev;
+    });
+  }, [now, loaded, persist]);
+
+  const isMemberActive = !!(stats.membership && stats.membership.tier !== "free" && stats.membership.expiresAt && stats.membership.expiresAt > now);
+
+  const hasEnergyOrMember = () => {
+    const memberActive = stats.membership && stats.membership.tier !== "free" && stats.membership.expiresAt && stats.membership.expiresAt > Date.now();
+    return memberActive || stats.energy > 0;
+  };
+
+  const spendEnergy = () => {
+    setStats((prev) => {
+      const memberActive = prev.membership && prev.membership.tier !== "free" && prev.membership.expiresAt && prev.membership.expiresAt > Date.now();
+      if (memberActive) return prev;
+      const wasFull = prev.energy >= MAX_ENERGY;
+      const nextEnergy = Math.max(0, prev.energy - 1);
+      const next = { ...prev, energy: nextEnergy, energyRefillAt: wasFull ? Date.now() + SIX_HOURS_MS : prev.energyRefillAt };
+      persist(next);
+      return next;
+    });
+  };
+
+  const startTopic = (subject, topic, customQuestions = null, aiFlag = false) => {
+    const qs = customQuestions ? customQuestions : shuffle(SUBJECTS[subject].topics[topic].questions);
+    setSubjectKey(subject);
+    setTopicKey(topic);
+    setQueue(qs);
+    setQIndex(0);
+    setHearts(3);
+    setSelected(null);
+    setAnswered(false);
+    setCorrectCount(0);
+    setSessionXp(0);
+    setFailed(false);
+    setIsAISession(aiFlag);
+    setScreen("practice");
+  };
+
+  const restartSession = () => {
+    setQueue((q) => shuffle(q));
+    setQIndex(0);
+    setHearts(3);
+    setSelected(null);
+    setAnswered(false);
+    setCorrectCount(0);
+    setSessionXp(0);
+    setFailed(false);
+    setScreen("practice");
+  };
+
+  const attemptStartTopic = (subject, topic) => {
+    if (!hasEnergyOrMember()) {
+      setScreen("energy");
+      return;
+    }
+    spendEnergy();
+    startTopic(subject, topic);
+  };
+
+  const attemptRestart = () => {
+    if (!hasEnergyOrMember()) {
+      setScreen("energy");
+      return;
+    }
+    spendEnergy();
+    restartSession();
+  };
+
+  const currentQ = queue[qIndex];
+
+  const handleSelect = (idx) => {
+    if (answered) return;
+    setSelected(idx);
+    setAnswered(true);
+    if (idx === currentQ.correct) {
+      setCorrectCount((c) => c + 1);
+      setSessionXp((x) => x + 10);
+    } else {
+      setHearts((h) => Math.max(0, h - 1));
+    }
+  };
+
+  const finishSession = useCallback(
+    (heartsLeft) => {
+      const today = new Date().toDateString();
+      let nextStreak = stats.streak;
+      if (stats.lastPlayDate !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        nextStreak = stats.lastPlayDate === yesterday ? stats.streak + 1 : 1;
+      }
+      setStats((prev) => {
+        const next = { ...prev, xp: prev.xp + sessionXp, streak: nextStreak, lastPlayDate: today };
+        persist(next);
+        return next;
+      });
+      setFailed(heartsLeft <= 0);
+      setScreen("summary");
+    },
+    [stats.streak, stats.lastPlayDate, sessionXp, persist]
+  );
+
+  const handleNext = () => {
+    if (hearts <= 0) {
+      finishSession(0);
+      return;
+    }
+    if (qIndex + 1 >= queue.length) {
+      finishSession(hearts);
+    } else {
+      setQIndex((i) => i + 1);
+      setSelected(null);
+      setAnswered(false);
+    }
+  };
+
+  // ---- Pemanggilan Gemini API ----
+  // GANTI teks di bawah dengan API key Gemini kamu sendiri dari aistudio.google.com
+  // JANGAN lupa batasi key itu ke domain github.io kamu (lihat penjelasan chat).
+  const GEMINI_API_KEY = "AQ.Ab8RN6LhSX3GfDMWHNpiSVzpVnH-7SRxgqVh4fV_oFL0wDFExw";
+  const GEMINI_MODEL = "gemini-2.5-flash";
+
+  const callClaudeAPI = async (system, userText) => {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: userText }] }],
+        }),
+      }
+    );
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || "Kesalahan API");
+    const parts = data.candidates && data.candidates[0] && data.candidates[0].content ? data.candidates[0].content.parts : [];
+    const text = (parts || []).map((p) => p.text || "").join("\n").trim();
+    if (!text) throw new Error("Respons kosong");
+    return text;
+  };
+
+  const generateAIQuestions = async (subject, topic) => {
+    if (aiTopicLoading) return;
+    setAiError(null);
+    setAiTopicLoading(topic);
+    try {
+      const subjectLabel = SUBJECTS[subject].label;
+      const topicLabel = SUBJECTS[subject].topics[topic].label;
+      const system = `Kamu adalah pembuat soal latihan Matematika/Sains untuk siswa SMP-SMA di Indonesia.
+Balas HANYA dengan JSON valid, tanpa markdown, tanpa teks lain di luar JSON.
+Format persis seperti ini, array berisi 5 objek:
+[{"q":"teks soal","options":["opsi1","opsi2","opsi3","opsi4"],"correct":0,"tip":"penjelasan singkat 1 kalimat"}]
+"correct" adalah indeks (0-3) jawaban benar di dalam "options". Semua teks berbahasa Indonesia dan ringkas.`;
+      const userMsg = `Buat 5 soal latihan baru tentang topik "${topicLabel}" dalam mata pelajaran ${subjectLabel}, tingkat kesulitan menengah. Variasikan angka dan konteks soal, jangan mengulang pola yang itu-itu saja.`;
+      const raw = await callClaudeAPI(system, userMsg);
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const match = cleaned.match(/\[[\s\S]*\]/);
+      const parsed = JSON.parse(match ? match[0] : cleaned);
+      const valid = (Array.isArray(parsed) ? parsed : []).filter(
+        (p) => p && typeof p.q === "string" && Array.isArray(p.options) && p.options.length === 4 && Number.isInteger(p.correct) && p.correct >= 0 && p.correct <= 3
+      );
+      if (valid.length === 0) throw new Error("Format tidak valid");
+      spendEnergy();
+      startTopic(subject, topic, valid, true);
+    } catch (e) {
+      setAiError("Gagal membuat soal dari AI. Cek API key Gemini kamu di kode, atau coba lagi ya.");
+      setTimeout(() => setAiError(null), 5000);
+    } finally {
+      setAiTopicLoading(null);
+    }
+  };
+
+  const attemptGenerateAI = (subject, topic) => {
+    if (!hasEnergyOrMember()) {
+      setScreen("energy");
+      return;
+    }
+    generateAIQuestions(subject, topic);
+  };
+
+  const handleSolve = async () => {
+    if (!solverInput.trim() || solverLoading) return;
+    setSolverLoading(true);
+    setSolverAnswer(null);
+    setSolverError(null);
+    try {
+      const system = `Kamu adalah tutor Matematika dan Sains yang sabar dan suportif untuk siswa SMP-SMA di Indonesia. Jika pengguna memberi soal hitung, selesaikan langkah demi langkah dengan bahasa sederhana, lalu tutup dengan baris baru berformat "Jawaban: <hasil akhir>". Jika pertanyaannya berupa konsep, jelaskan singkat disertai contoh sederhana. Gunakan Bahasa Indonesia. Tulis pecahan dan pangkat dengan notasi biasa seperti 3/4 atau x^2, jangan gunakan notasi LaTeX.`;
+      const answer = await callClaudeAPI(system, solverInput.trim());
+      setSolverAnswer(answer);
+    } catch (e) {
+      setSolverError("Terjadi kesalahan. Cek API key Gemini kamu di kode, atau coba lagi ya.");
+    } finally {
+      setSolverLoading(false);
+    }
+  };
+
+  const purchaseMembership = (tier) => {
+    const plan = PLANS.find((p) => p.key === tier);
+    if (!plan) return;
+    const expiresAt = Date.now() + plan.days * 24 * 60 * 60 * 1000;
+    setStats((prev) => {
+      const next = { ...prev, membership: { tier, expiresAt }, energy: MAX_ENERGY, energyRefillAt: null };
+      persist(next);
+      return next;
+    });
+    setScreen("home");
+  };
+
+  const handleAdComplete = () => {
+    setStats((prev) => {
+      const nextEnergy = Math.min(MAX_ENERGY, prev.energy + 1);
+      const next = { ...prev, energy: nextEnergy, energyRefillAt: nextEnergy >= MAX_ENERGY ? null : prev.energyRefillAt };
+      persist(next);
+      return next;
+    });
+    setScreen("home");
+  };
+
+  if (!loaded) return null;
+
+  const subject = SUBJECTS[subjectKey];
+  const praise = PRAISE[qIndex % PRAISE.length];
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "radial-gradient(circle at 20% 10%, #1c3a33 0%, #16302b 45%, #10221d 100%)",
+        fontFamily: "'Nunito Sans', 'Inter', sans-serif",
+        color: "#FBF3E3",
+        display: "flex",
+        justifyContent: "center",
+        padding: "20px 14px 40px",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 460 }}>
+        {screen === "home" && (
+          <HomeScreen
+            subject={subject}
+            subjectKey={subjectKey}
+            setSubjectKey={setSubjectKey}
+            stats={stats}
+            isMemberActive={isMemberActive}
+            user={user}
+            onOpenAccount={() => setScreen("account")}
+            onStart={attemptStartTopic}
+            aiTopicLoading={aiTopicLoading}
+            aiError={aiError}
+            onGenerateAI={attemptGenerateAI}
+            onOpenSolver={() => setScreen("solver")}
+            onOpenMembership={() => setScreen("membership")}
+          />
+        )}
+        {screen === "practice" && currentQ && (
+          <PracticeScreen
+            subject={subject}
+            topicLabel={subject.topics[topicKey].label}
+            isAI={isAISession}
+            question={currentQ}
+            qIndex={qIndex}
+            total={queue.length}
+            hearts={hearts}
+            selected={selected}
+            answered={answered}
+            praise={praise}
+            onSelect={handleSelect}
+            onNext={handleNext}
+            onQuit={() => setScreen("home")}
+          />
+        )}
+        {screen === "summary" && (
+          <SummaryScreen
+            failed={failed}
+            correctCount={correctCount}
+            total={queue.length}
+            sessionXp={sessionXp}
+            streak={stats.streak}
+            onRetry={attemptRestart}
+            onHome={() => setScreen("home")}
+          />
+        )}
+        {screen === "solver" && (
+          <SolverScreen
+            input={solverInput}
+            setInput={setSolverInput}
+            loading={solverLoading}
+            answer={solverAnswer}
+            error={solverError}
+            onSolve={handleSolve}
+            onBack={() => setScreen("home")}
+          />
+        )}
+        {screen === "membership" && (
+          <MembershipScreen stats={stats} now={now} onPurchase={purchaseMembership} onBack={() => setScreen("home")} />
+        )}
+        {screen === "energy" && (
+          <EnergyScreen
+            now={now}
+            energyRefillAt={stats.energyRefillAt}
+            onWatchAd={() => setScreen("ad")}
+            onOpenMembership={() => setScreen("membership")}
+            onBack={() => setScreen("home")}
+          />
+        )}
+        {screen === "ad" && <AdScreen onComplete={handleAdComplete} onCancel={() => setScreen("energy")} />}
+        {screen === "account" && (
+          <AccountScreen user={user} authLoading={authLoading} authError={authError} onSignIn={signInGoogle} onSignOut={signOutUser} onBack={() => setScreen("home")} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatBar({ stats, isMemberActive, onOpenMembership, user, onOpenAccount }) {
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <button
+        onClick={onOpenAccount}
+        style={{ width: 26, height: 26, borderRadius: "50%", border: "none", padding: 0, overflow: "hidden", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+      >
+        {user && user.photoURL ? <img src={user.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon size={13}>👤</Icon>}
+      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#F4936B" }}>
+        <Icon size={18}>🔥</Icon>
+        <span style={{ fontWeight: 800 }}>{stats.streak}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#F4C550" }}>
+        <Icon size={18}>⭐</Icon>
+        <span style={{ fontWeight: 800 }}>{stats.xp}</span>
+      </div>
+      {isMemberActive ? (
+        <button
+          onClick={onOpenMembership}
+          style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(244,197,80,0.15)", border: "1px solid #F4C550", borderRadius: 999, padding: "4px 9px" }}
+        >
+          <Icon size={13}>👑</Icon>
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: "#F4C550" }}>Member</span>
+        </button>
+      ) : (
+        <button
+          onClick={onOpenMembership}
+          style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(127,209,224,0.12)", border: "1px solid rgba(127,209,224,0.4)", borderRadius: 999, padding: "4px 9px" }}
+        >
+          <Icon size={13}>⚡</Icon>
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: "#7FD1E0" }}>{stats.energy}/{MAX_ENERGY}</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function HomeScreen({ subject, subjectKey, setSubjectKey, stats, isMemberActive, user, onOpenAccount, onStart, aiTopicLoading, aiError, onGenerateAI, onOpenSolver, onOpenMembership }) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+        <div className="chalk-title" style={{ fontSize: 28, fontWeight: 800, letterSpacing: 0.5 }}>Nova AI</div>
+        <StatBar stats={stats} isMemberActive={isMemberActive} onOpenMembership={onOpenMembership} user={user} onOpenAccount={onOpenAccount} />
+      </div>
+
+      <p style={{ color: "#B9CFC7", margin: "0 0 18px", fontSize: 15 }}>Pilih mata pelajaran, lalu asah kemampuanmu lewat soal-soal singkat.</p>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
+        {Object.entries(SUBJECTS).map(([key, s]) => {
+          const active = key === subjectKey;
+          return (
+            <button
+              key={key}
+              onClick={() => setSubjectKey(key)}
+              style={{
+                flex: 1,
+                border: active ? `2px solid ${s.accent}` : "2px dashed rgba(255,255,255,0.18)",
+                background: active ? "rgba(255,255,255,0.06)" : "transparent",
+                borderRadius: 16,
+                padding: "16px 12px",
+                textAlign: "left",
+                color: "#FBF3E3",
+              }}
+            >
+              <div className="chalk-title" style={{ fontSize: 19, fontWeight: 700, color: active ? s.accent : "#FBF3E3" }}>{s.label}</div>
+              <div style={{ fontSize: 12.5, color: "#9FB8AE", marginTop: 2 }}>{s.tagline}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="chalk-title" style={{ fontSize: 15, fontWeight: 700, color: "#9FB8AE", marginBottom: 10 }}>Topik {subject.label}</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {Object.entries(subject.topics).map(([key, t]) => {
+          const loadingThis = aiTopicLoading === key;
+          return (
+            <div
+              key={key}
+              role="button"
+              tabIndex={0}
+              onClick={() => onStart(subjectKey, key)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onStart(subjectKey, key); }}
+              className="opt-btn"
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FBF3E3", color: "#1C2B24", borderRadius: 14, padding: "16px 18px", boxShadow: "0 4px 0 rgba(0,0,0,0.25)", cursor: "pointer" }}
+            >
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>{t.label}</div>
+                <div style={{ fontSize: 12.5, color: "#5C6F65" }}>{t.questions.length} soal latihan</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onGenerateAI(subjectKey, key); }}
+                  disabled={loadingThis}
+                  title="Buat soal baru dengan AI"
+                  style={{ display: "flex", alignItems: "center", gap: 5, border: "none", borderRadius: 999, padding: "6px 10px", background: "rgba(28,43,36,0.08)", color: "#5C6F65", fontSize: 11.5, fontWeight: 800 }}
+                >
+                  {loadingThis ? <Spinner /> : <Icon size={13}>✨</Icon>}
+                  AI
+                </button>
+                <Icon size={20} color={subject.accent}>›</Icon>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {aiError && (
+        <div style={{ marginTop: 14, background: "rgba(226,105,79,0.15)", border: "1px solid #E2694F", color: "#F0A98F", padding: "10px 14px", borderRadius: 10, fontSize: 13 }}>
+          {aiError}
+        </div>
+      )}
+
+      <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "26px 0 16px" }} />
+
+      <div className="chalk-title" style={{ fontSize: 15, fontWeight: 700, color: "#9FB8AE", marginBottom: 10 }}>Butuh bantuan lain?</div>
+
+      <button
+        onClick={onOpenSolver}
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.05)", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 16, padding: "14px 16px", color: "#FBF3E3", textAlign: "left", marginBottom: 10 }}
+      >
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(244,197,80,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon size={21}>🤖</Icon>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>Tanya AI</div>
+          <div style={{ fontSize: 12.5, color: "#9FB8AE" }}>Punya soal sendiri? Minta AI menyelesaikan & menjelaskan.</div>
+        </div>
+        <Icon size={18} color="#9FB8AE">›</Icon>
+      </button>
+
+      {!isMemberActive && (
+        <button
+          onClick={onOpenMembership}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, background: "rgba(244,197,80,0.08)", border: "2px dashed rgba(244,197,80,0.4)", borderRadius: 16, padding: "14px 16px", color: "#FBF3E3", textAlign: "left" }}
+        >
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(244,197,80,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon size={21}>👑</Icon>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>Nova AI Premium</div>
+            <div style={{ fontSize: 12.5, color: "#9FB8AE" }}>Energi tak terbatas & tanpa iklan.</div>
+          </div>
+          <Icon size={18} color="#9FB8AE">›</Icon>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PracticeScreen({ subject, topicLabel, isAI, question, qIndex, total, hearts, selected, answered, praise, onSelect, onNext, onQuit }) {
+  const isCorrect = answered && selected === question.correct;
+  const progressPct = Math.round(((qIndex + (answered ? 1 : 0)) / total) * 100);
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <button onClick={onQuit} aria-label="Tutup" style={{ background: "none", border: "none", color: "#B9CFC7" }}>
+          <Icon size={20}>✕</Icon>
+        </button>
+        <div style={{ flex: 1, height: 10, borderRadius: 6, background: "rgba(255,255,255,0.12)", overflow: "hidden" }}>
+          <div style={{ width: `${progressPct}%`, height: "100%", background: subject.accent, transition: "width 0.3s ease" }} />
+        </div>
+        <div style={{ display: "flex", gap: 3 }}>
+          {[0, 1, 2].map((i) => (
+            <Icon key={i} size={18} color={i < hearts ? "#E2694F" : "#5C6F65"}>{i < hearts ? "♥" : "♡"}</Icon>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: "#9FB8AE", marginBottom: 8, fontWeight: 700 }}>
+        {topicLabel.toUpperCase()}{isAI ? " · SOAL AI" : ""}
+      </div>
+
+      <div style={{ background: "#FBF3E3", color: "#1C2B24", borderRadius: 18, padding: "26px 22px", transform: "rotate(-0.6deg)", boxShadow: "0 6px 0 rgba(0,0,0,0.3)", marginBottom: 22, minHeight: 90, display: "flex", alignItems: "center" }}>
+        <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.4 }}>{question.q}</div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {question.options.map((opt, idx) => {
+          let border = "2px solid rgba(255,255,255,0.15)";
+          let bg = "transparent";
+          if (answered && idx === question.correct) { border = "2px solid #6FBF8F"; bg = "rgba(111,191,143,0.15)"; }
+          else if (answered && idx === selected) { border = "2px solid #E2694F"; bg = "rgba(226,105,79,0.15)"; }
+          else if (selected === idx) { border = `2px solid ${subject.accent}`; }
+          return (
+            <button key={idx} className="opt-btn" disabled={answered} onClick={() => onSelect(idx)} style={{ textAlign: "left", padding: "14px 16px", borderRadius: 12, border, background: bg, color: "#FBF3E3", fontSize: 15.5, fontWeight: 600 }}>
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+
+      {answered && (
+        <div style={{ marginTop: 20, padding: "16px 18px", borderRadius: 14, background: isCorrect ? "rgba(111,191,143,0.15)" : "rgba(226,105,79,0.15)", border: `2px solid ${isCorrect ? "#6FBF8F" : "#E2694F"}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 16, color: isCorrect ? "#8FDBAA" : "#F0A98F" }}>
+            <Icon size={18}>{isCorrect ? "✓" : "✕"}</Icon>
+            {isCorrect ? praise : "Belum tepat"}
+          </div>
+          <div style={{ fontSize: 13.5, color: "#D9E8E1", marginTop: 6 }}>{question.tip}</div>
+          <button onClick={onNext} style={{ marginTop: 14, width: "100%", padding: "13px", borderRadius: 12, border: "none", background: "#FBF3E3", color: "#1C2B24", fontWeight: 800, fontSize: 15 }}>
+            Lanjut
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryScreen({ failed, correctCount, total, sessionXp, streak, onRetry, onHome }) {
+  return (
+    <div style={{ textAlign: "center", paddingTop: 40 }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+        <div style={{ width: 84, height: 84, borderRadius: "50%", background: failed ? "rgba(226,105,79,0.18)" : "rgba(244,197,80,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon size={38} color={failed ? "#E2694F" : "#F4C550"}>{failed ? "♥" : "✨"}</Icon>
+        </div>
+      </div>
+      <div className="chalk-title" style={{ fontSize: 25, fontWeight: 800, marginBottom: 6 }}>{failed ? "Nyawa habis!" : "Sesi selesai!"}</div>
+      <p style={{ color: "#B9CFC7", fontSize: 14.5, marginBottom: 24 }}>{failed ? "Tidak apa, coba lagi supaya lebih lancar." : "Kerja bagus, terus asah kemampuanmu."}</p>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 30 }}>
+        <div style={{ background: "#FBF3E3", color: "#1C2B24", borderRadius: 14, padding: "14px 20px", minWidth: 100 }}>
+          <div style={{ fontSize: 12, color: "#5C6F65", fontWeight: 700 }}>SKOR</div>
+          <div style={{ fontSize: 21, fontWeight: 800 }}>{correctCount}/{total}</div>
+        </div>
+        <div style={{ background: "#FBF3E3", color: "#1C2B24", borderRadius: 14, padding: "14px 20px", minWidth: 100 }}>
+          <div style={{ fontSize: 12, color: "#5C6F65", fontWeight: 700 }}>XP</div>
+          <div style={{ fontSize: 21, fontWeight: 800 }}>+{sessionXp}</div>
+        </div>
+        <div style={{ background: "#FBF3E3", color: "#1C2B24", borderRadius: 14, padding: "14px 20px", minWidth: 100 }}>
+          <div style={{ fontSize: 12, color: "#5C6F65", fontWeight: 700 }}>STREAK</div>
+          <div style={{ fontSize: 21, fontWeight: 800 }}>{streak}</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <button onClick={onRetry} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, border: "none", background: "#F4C550", color: "#1C2B24", fontWeight: 800, fontSize: 15 }}>
+          <Icon size={17}>↺</Icon> Coba lagi
+        </button>
+        <button onClick={onHome} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.2)", background: "transparent", color: "#FBF3E3", fontWeight: 800, fontSize: 15 }}>
+          <Icon size={17}>🏠</Icon> Kembali ke beranda
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SolverScreen({ input, setInput, loading, answer, error, onSolve, onBack }) {
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <button onClick={onBack} aria-label="Kembali" style={{ background: "none", border: "none", color: "#B9CFC7", display: "flex" }}>
+          <Icon size={20}>←</Icon>
+        </button>
+        <div className="chalk-title" style={{ fontSize: 19, fontWeight: 700 }}>Tanya AI</div>
+      </div>
+
+      <p style={{ color: "#B9CFC7", fontSize: 13.5, marginBottom: 14 }}>Tulis soal Matematika atau Sains, atau pertanyaan konsep apa pun. AI akan membantu menyelesaikan dan menjelaskan langkahnya.</p>
+
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder='Contoh: "3x - 4 = 11, berapa x?" atau "Kenapa langit berwarna biru?"'
+        rows={4}
+        style={{ width: "100%", borderRadius: 14, padding: 14, fontSize: 15, border: "none", resize: "vertical", color: "#1C2B24", background: "#FBF3E3", fontFamily: "inherit", boxSizing: "border-box" }}
+      />
+
+      <button
+        onClick={onSolve}
+        disabled={loading || !input.trim()}
+        style={{ marginTop: 12, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, border: "none", background: loading || !input.trim() ? "rgba(244,197,80,0.4)" : "#F4C550", color: "#1C2B24", fontWeight: 800, fontSize: 15 }}
+      >
+        {loading ? (<><Spinner /> Nova AI sedang berpikir...</>) : (<><Icon size={16}>➤</Icon> Selesaikan</>)}
+      </button>
+
+      {error && <div style={{ color: "#F0A98F", marginTop: 12, fontSize: 13.5 }}>{error}</div>}
+
+      {answer && (
+        <div style={{ marginTop: 20, background: "#FBF3E3", color: "#1C2B24", borderRadius: 14, padding: "18px 16px", fontSize: 14.5, lineHeight: 1.65 }}>
+          {answer.split("\n").map((line, i) => {
+            const isAnswerLine = /^jawaban\s*:/i.test(line.trim());
+            return (
+              <div key={i} style={{ fontWeight: isAnswerLine ? 800 : 400, color: isAnswerLine ? "#B5842F" : "#1C2B24", marginTop: isAnswerLine ? 10 : line.trim() === "" ? 8 : 0 }}>
+                {line.trim() === "" ? "\u00A0" : line}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MembershipScreen({ stats, now, onPurchase, onBack }) {
+  const active = stats.membership && stats.membership.tier !== "free" && stats.membership.expiresAt > now;
+  const activePlan = active ? PLANS.find((p) => p.key === stats.membership.tier) : null;
+  const expiresLabel = active ? new Date(stats.membership.expiresAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : null;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <button onClick={onBack} aria-label="Kembali" style={{ background: "none", border: "none", color: "#B9CFC7" }}>
+          <Icon size={20}>←</Icon>
+        </button>
+        <div className="chalk-title" style={{ fontSize: 19, fontWeight: 700 }}>Nova AI Premium</div>
+      </div>
+
+      {active ? (
+        <div style={{ background: "rgba(244,197,80,0.12)", border: "2px solid #F4C550", borderRadius: 16, padding: 18, marginBottom: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <Icon size={18}>👑</Icon>
+            <span style={{ fontWeight: 800, fontSize: 16 }}>Member {activePlan ? activePlan.label : ""}</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#D9E8E1" }}>Berlaku hingga {expiresLabel}</div>
+        </div>
+      ) : (
+        <p style={{ color: "#B9CFC7", fontSize: 14.5, marginBottom: 18 }}>Latihan tanpa batas energi dan tanpa iklan.</p>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 8 }}>
+        {["Energi tak terbatas, latihan sepuasnya", "Tanpa iklan", "Buat soal AI tanpa batas"].map((b, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#D9E8E1" }}>
+            <Icon size={15} color="#6FBF8F">✓</Icon> {b}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "20px 0 16px" }} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {PLANS.map((p) => (
+          <div key={p.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FBF3E3", color: "#1C2B24", borderRadius: 14, padding: "16px 18px" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 800, fontSize: 16 }}>{p.label}</span>
+                {p.badge && (
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: "#fff", background: p.key === "yearly" ? "#E2694F" : "#6FBFB0", borderRadius: 999, padding: "2px 7px" }}>{p.badge}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 13, color: "#5C6F65", marginTop: 2 }}>
+                <span style={{ fontWeight: 700, color: "#1C2B24" }}>{p.price}</span> {p.period}
+              </div>
+            </div>
+            <button onClick={() => onPurchase(p.key)} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "#1C2B24", color: "#FBF3E3", fontWeight: 800, fontSize: 13.5 }}>Pilih</button>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ color: "#5C6F65", fontSize: 11, marginTop: 18, textAlign: "center" }}>*Harga contoh untuk demo. Pembayaran nyata memerlukan integrasi Google Play Billing.</p>
+    </div>
+  );
+}
+
+function EnergyScreen({ now, energyRefillAt, onWatchAd, onOpenMembership, onBack }) {
+  const remainingMs = energyRefillAt ? Math.max(0, energyRefillAt - now) : 0;
+  const h = Math.floor(remainingMs / 3600000);
+  const m = Math.floor((remainingMs % 3600000) / 60000);
+  const s = Math.floor((remainingMs % 60000) / 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+
+  return (
+    <div style={{ textAlign: "center", paddingTop: 40 }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+        <div style={{ width: 84, height: 84, borderRadius: "50%", background: "rgba(127,209,224,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon size={38}>⚡</Icon>
+        </div>
+      </div>
+      <div className="chalk-title" style={{ fontSize: 23, fontWeight: 800, marginBottom: 6 }}>Energi Habis</div>
+      <p style={{ color: "#B9CFC7", fontSize: 14, marginBottom: 4 }}>Energi kamu terisi penuh lagi dalam:</p>
+      <div className="chalk-title" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 26, fontWeight: 800, marginBottom: 26 }}>
+        <Icon size={20}>🕐</Icon> {pad(h)}:{pad(m)}:{pad(s)}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <button onClick={onWatchAd} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, border: "none", background: "#7FD1E0", color: "#0F211D", fontWeight: 800, fontSize: 15 }}>
+          <Icon size={17}>📺</Icon> Tonton Iklan (+1 Energi)
+        </button>
+        <button onClick={onOpenMembership} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, border: "none", background: "#F4C550", color: "#1C2B24", fontWeight: 800, fontSize: 15 }}>
+          <Icon size={17}>👑</Icon> Lihat Membership
+        </button>
+        <button onClick={onBack} style={{ padding: "12px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.2)", background: "transparent", color: "#FBF3E3", fontWeight: 700, fontSize: 14.5 }}>Kembali</button>
+      </div>
+    </div>
+  );
+}
+
+function AdScreen({ onComplete, onCancel }) {
+  const [progress, setProgress] = useState(0);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    const duration = 4000;
+    const start = Date.now();
+    const id = setInterval(() => {
+      const pct = Math.min(100, ((Date.now() - start) / duration) * 100);
+      setProgress(pct);
+      if (pct >= 100) { clearInterval(id); setDone(true); }
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div style={{ textAlign: "center", paddingTop: 50 }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+        <div style={{ width: 84, height: 84, borderRadius: "50%", background: "rgba(127,209,224,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon size={36}>{done ? "✓" : "📺"}</Icon>
+        </div>
+      </div>
+
+      {!done ? (
+        <>
+          <div className="chalk-title" style={{ fontSize: 19, fontWeight: 700, marginBottom: 14 }}>Iklan sedang diputar...</div>
+          <div style={{ height: 10, borderRadius: 6, background: "rgba(255,255,255,0.12)", overflow: "hidden", marginBottom: 20 }}>
+            <div style={{ width: `${progress}%`, height: "100%", background: "#7FD1E0", transition: "width 0.1s linear" }} />
+          </div>
+          <button onClick={onCancel} style={{ background: "none", border: "none", color: "#9FB8AE", fontSize: 13.5 }}>Lewati</button>
+        </>
+      ) : (
+        <>
+          <div className="chalk-title" style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Terima kasih!</div>
+          <p style={{ color: "#B9CFC7", fontSize: 14, marginBottom: 20 }}>+1 Energi telah ditambahkan.</p>
+          <button onClick={onComplete} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "#7FD1E0", color: "#0F211D", fontWeight: 800, fontSize: 15 }}>Lanjutkan</button>
+        </>
+      )}
+
+      <p style={{ color: "#5C6F65", fontSize: 11, marginTop: 24 }}>*Simulasi iklan untuk demo. Integrasikan AdMob saat aplikasi dipublikasikan.</p>
+    </div>
+  );
+}
+
+function AccountScreen({ user, authLoading, authError, onSignIn, onSignOut, onBack }) {
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <button onClick={onBack} aria-label="Kembali" style={{ background: "none", border: "none", color: "#B9CFC7" }}>
+          <Icon size={20}>←</Icon>
+        </button>
+        <div className="chalk-title" style={{ fontSize: 19, fontWeight: 700 }}>Akun</div>
+      </div>
+
+      {authLoading ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: "#B9CFC7", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Spinner /> Memuat...
+        </div>
+      ) : user ? (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, background: "#FBF3E3", color: "#1C2B24", borderRadius: 16, padding: 18, marginBottom: 16 }}>
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="" style={{ width: 48, height: 48, borderRadius: "50%" }} />
+            ) : (
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#F4C550", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20 }}>
+                {(user.displayName || user.email || "?").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>{user.displayName || "Pengguna"}</div>
+              <div style={{ fontSize: 12.5, color: "#5C6F65", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</div>
+            </div>
+          </div>
+          <p style={{ color: "#B9CFC7", fontSize: 13, marginBottom: 18 }}>
+            Progres kamu otomatis tersimpan ke cloud dan bisa dibuka lagi dari HP lain dengan akun Google yang sama.
+          </p>
+          <button
+            onClick={onSignOut}
+            style={{ width: "100%", padding: "14px", borderRadius: 12, border: "2px solid rgba(255,255,255,0.2)", background: "transparent", color: "#FBF3E3", fontWeight: 800, fontSize: 15 }}
+          >
+            Keluar
+          </button>
+        </div>
+      ) : (
+        <div>
+          <p style={{ color: "#B9CFC7", fontSize: 14.5, marginBottom: 20 }}>
+            Masuk dengan akun Google supaya progres, XP, dan streak kamu tersimpan aman dan bisa dibuka dari HP mana pun.
+          </p>
+          <button
+            onClick={onSignIn}
+            style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "#FBF3E3", color: "#1C2B24", fontWeight: 800, fontSize: 15 }}
+          >
+            Masuk dengan Google
+          </button>
+          {authError && <div style={{ color: "#F0A98F", marginTop: 12, fontSize: 13.5 }}>{authError}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<NovaAIApp />);
+</script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
